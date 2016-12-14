@@ -19,35 +19,48 @@
 #define FBAssertInvisibleCell(label) XCTAssertFalse(FBCellElementWithLabel(label).fb_isVisible, @"Cell %@ should be invisible", label)
 
 @interface FBScrollingTests : FBIntegrationTestCase
-@property (nonatomic, strong) XCUIElement *tableView;
+@property (nonatomic, strong) XCUIElement *scrollView;
 @end
 
 @implementation FBScrollingTests
 
-+ (BOOL)shouldUseStrippedCells
++ (BOOL)shouldShowCells
 {
-  return NO;
+  return YES;
 }
 
 - (void)setUp
 {
   [super setUp];
-  [self gotToScrollsWithAccessibilityStrippedCells:NO];
-  self.tableView = self.testedApplication.tables.element;
-  [self.tableView resolve];
+  [self goToScrollPageWithCells:[self.class shouldShowCells]];
+  self.scrollView = [[self.testedApplication.query descendantsMatchingType:XCUIElementTypeAny] matchingIdentifier:@"scrollView"].element;
+  [self.scrollView resolve];
+}
+
+- (void)testCellVisibility
+{
+  FBAssertVisibleCell(@"0");
+  FBAssertVisibleCell(@"10");
+  FBAssertInvisibleCell(@"30");
+  FBAssertInvisibleCell(@"50");
 }
 
 - (void)testSimpleScroll
 {
-  [self.tableView fb_scrollDown];
-  FBAssertVisibleCell(@"20");
-  [self.tableView fb_scrollUp];
   FBAssertVisibleCell(@"0");
+  FBAssertVisibleCell(@"10");
+  [self.scrollView fb_scrollDown];
+  FBAssertInvisibleCell(@"0");
+  FBAssertInvisibleCell(@"10");
+  XCTAssertTrue(self.testedApplication.staticTexts.count > 0);
+  [self.scrollView fb_scrollUp];
+  FBAssertVisibleCell(@"0");
+  FBAssertVisibleCell(@"10");
 }
 
 - (void)testScrollToVisible
 {
-  NSString *cellName = @"20";
+  NSString *cellName = @"30";
   FBAssertInvisibleCell(cellName);
   NSError *error;
   XCTAssertTrue([FBCellElementWithLabel(cellName) fb_scrollToVisibleWithError:&error]);
@@ -63,6 +76,18 @@
   XCTAssertTrue([FBCellElementWithLabel(cellName) fb_scrollToVisibleWithError:&error]);
   XCTAssertNil(error);
   FBAssertVisibleCell(cellName);
+}
+
+@end
+
+@interface FBNoCellScrollingTests : FBScrollingTests
+@end
+
+@implementation FBNoCellScrollingTests
+
++ (BOOL)shouldShowCells
+{
+  return NO;
 }
 
 @end

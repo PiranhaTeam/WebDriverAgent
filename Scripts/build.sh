@@ -10,17 +10,30 @@
 
 set -eu
 
+function prebootSimulator() {
+  if [ -z "${DESTINATION:-}" ]; then
+    return
+  fi
+  xcrun instruments -t 'Blank' -l 1 -w "${DESTINATION} (${IOS})"
+}
+
 function build() {
- xcodebuild \
-      -project WebDriverAgent.xcodeproj \
-      -scheme $TARGET \
-      -sdk $SDK \
-      -destination "platform=iOS Simulator,name=${DESTINATION-'iPhone 6'}" \
-      $ACTION \
-      CODE_SIGN_IDENTITY="" \
-      CODE_SIGNING_REQUIRED=NO \
-  | xcpretty
+  if [ ! -z "${DESTINATION:-}" ]; then
+    DESTINATION_CMD="-destination \"name=${DESTINATION},OS=${IOS}\""
+  fi
+  lines=(
+    "xcodebuild"
+    "-project WebDriverAgent.xcodeproj"
+    "-scheme ${TARGET=WebDriverAgentRunner}"
+    "-sdk ${SDK=iphoneos}"
+    "${DESTINATION_CMD-}"
+    "${ACTION-archive}"
+    "CODE_SIGN_IDENTITY=\"\""
+    "CODE_SIGNING_REQUIRED=NO"
+  )
+  eval "${lines[*]}" | xcpretty && exit ${PIPESTATUS[0]}
 }
 
 ./Scripts/bootstrap.sh
+prebootSimulator
 build

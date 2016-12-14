@@ -15,7 +15,7 @@
 #import "FBRunLoopSpinner.h"
 #import "FBMacros.h"
 #import "XCElementSnapshot.h"
-#import "XCUIElement+Utilities.h"
+#import "XCUIElement+FBUtilities.h"
 #import "XCTestDriver.h"
 
 static const NSUInteger FBTypingFrequency = 60;
@@ -53,6 +53,10 @@ static const NSUInteger FBTypingFrequency = 60;
      return (foundKeyboard.exists ? foundKeyboard : nil);
    }
    error:error];
+
+  if (!keyboard) {
+    return NO;
+  }
 
   if (![keyboard fb_waitUntilFrameIsStable]) {
     return

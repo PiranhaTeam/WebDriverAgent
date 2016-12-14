@@ -24,8 +24,9 @@
 #import "XCUIElement+FBIsVisible.h"
 #import "XCUIElement+FBScrolling.h"
 #import "XCUIElement+FBTap.h"
-#import "XCUIElement+Utilities.h"
-#import "XCUIElement+WebDriverAttributes.h"
+#import "XCUIElement+FBTyping.h"
+#import "XCUIElement+FBUtilities.h"
+#import "XCUIElement+FBWebDriverAttributes.h"
 #import "FBElementTypeTransformer.h"
 #import "XCUIElement.h"
 #import "XCUIElementQuery.h"
@@ -43,24 +44,27 @@
   @[
     [[FBRoute GET:@"/element/:uuid/enabled"] respondWithTarget:self action:@selector(handleGetEnabled:)],
     [[FBRoute GET:@"/element/:uuid/rect"] respondWithTarget:self action:@selector(handleGetRect:)],
-    [[FBRoute GET:@"/element/:uuid/size"] respondWithTarget:self action:@selector(handleGetSize:)],
-    [[FBRoute GET:@"/element/:uuid/location"] respondWithTarget:self action:@selector(handleGetLocation:)],
-    [[FBRoute GET:@"/element/:uuid/location_in_view"] respondWithTarget:self action:@selector(handleGetLocationInView:)],
     [[FBRoute GET:@"/element/:uuid/attribute/:name"] respondWithTarget:self action:@selector(handleGetAttribute:)],
     [[FBRoute GET:@"/element/:uuid/text"] respondWithTarget:self action:@selector(handleGetText:)],
     [[FBRoute GET:@"/element/:uuid/displayed"] respondWithTarget:self action:@selector(handleGetDisplayed:)],
     [[FBRoute GET:@"/element/:uuid/accessible"] respondWithTarget:self action:@selector(handleGetAccessible:)],
+    [[FBRoute GET:@"/element/:uuid/accessibilityContainer"] respondWithTarget:self action:@selector(handleGetIsAccessibilityContainer:)],
     [[FBRoute GET:@"/element/:uuid/name"] respondWithTarget:self action:@selector(handleGetName:)],
-    [[FBRoute POST:@"/element/:uuid/value"] respondWithTarget:self action:@selector(handleGetValue:)],
+    [[FBRoute POST:@"/element/:uuid/value"] respondWithTarget:self action:@selector(handleSetValue:)],
     [[FBRoute POST:@"/element/:uuid/click"] respondWithTarget:self action:@selector(handleClick:)],
     [[FBRoute POST:@"/element/:uuid/clear"] respondWithTarget:self action:@selector(handleClear:)],
+    [[FBRoute POST:@"/element/:uuid/pinch"] respondWithTarget:self action:@selector(handlePinch:)],
     [[FBRoute POST:@"/uiaElement/:uuid/doubleTap"] respondWithTarget:self action:@selector(handleDoubleTap:)],
+    [[FBRoute POST:@"/uiaElement/:uuid/twoFingerTap"] respondWithTarget:self action:@selector(handleTwoFingerTap:)],
     [[FBRoute POST:@"/uiaElement/:uuid/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHold:)],
     [[FBRoute POST:@"/uiaElement/:uuid/scroll"] respondWithTarget:self action:@selector(handleScroll:)],
-    [[FBRoute POST:@"/uiaElement/:uuid/value"] respondWithTarget:self action:@selector(handleGetUIAElementValue:)],
     [[FBRoute POST:@"/uiaTarget/:uuid/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDrag:)],
     [[FBRoute POST:@"/tap/:uuid"] respondWithTarget:self action:@selector(handleTap:)],
+    [[FBRoute POST:@"/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHoldCoordinate:)],
+    [[FBRoute POST:@"/doubleTap"] respondWithTarget:self action:@selector(handleDoubleTapCoordinate:)],
     [[FBRoute POST:@"/keys"] respondWithTarget:self action:@selector(handleKeys:)],
+    [[FBRoute GET:@"/window/size"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
+    // TODO: This API call should be deprecated and replaced with the one above without the extra :uuid parameter
     [[FBRoute GET:@"/window/:uuid/size"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
   ];
 }
@@ -81,31 +85,6 @@
   FBElementCache *elementCache = request.session.elementCache;
   XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
   return FBResponseWithStatus(FBCommandStatusNoError, element.wdRect);
-}
-
-+ (id<FBResponsePayload>)handleGetSize:(FBRouteRequest *)request
-{
-  FBElementCache *elementCache = request.session.elementCache;
-  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
-  return FBResponseWithStatus(FBCommandStatusNoError, element.wdSize);
-}
-
-+ (id<FBResponsePayload>)handleGetLocation:(FBRouteRequest *)request
-{
-  FBElementCache *elementCache = request.session.elementCache;
-  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
-  return FBResponseWithStatus(FBCommandStatusNoError, element.wdLocation);
-}
-
-+ (id<FBResponsePayload>)handleGetLocationInView:(FBRouteRequest *)request
-{
-  FBElementCache *elementCache = request.session.elementCache;
-  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
-  NSError *error;
-  if ([element fb_scrollToVisibleWithError:&error]) {
-    return FBResponseWithStatus(FBCommandStatusNoError, element.wdLocation);
-  }
-  return FBResponseWithError(error);
 }
 
 + (id<FBResponsePayload>)handleGetAttribute:(FBRouteRequest *)request
@@ -146,6 +125,13 @@
   return FBResponseWithStatus(FBCommandStatusNoError, @(element.isWDAccessible));
 }
 
++ (id<FBResponsePayload>)handleGetIsAccessibilityContainer:(FBRouteRequest *)request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
+  return FBResponseWithStatus(FBCommandStatusNoError, @(element.isWDAccessibilityContainer));
+}
+
 + (id<FBResponsePayload>)handleGetName:(FBRouteRequest *)request
 {
   FBElementCache *elementCache = request.session.elementCache;
@@ -154,17 +140,33 @@
   return FBResponseWithStatus(FBCommandStatusNoError, type);
 }
 
-+ (id<FBResponsePayload>)handleGetValue:(FBRouteRequest *)request
++ (id<FBResponsePayload>)handleSetValue:(FBRouteRequest *)request
 {
   FBElementCache *elementCache = request.session.elementCache;
   NSString *elementUUID = request.parameters[@"uuid"];
   XCUIElement *element = [elementCache elementForUUID:elementUUID];
-  NSError *error = nil;
-  if (!element.hasKeyboardFocus && ![element fb_tapWithError:&error]) {
-    return FBResponseWithError(error);
+  id value = request.arguments[@"value"];
+  if (!value) {
+    return FBResponseWithErrorFormat(@"Missing 'value' parameter");
   }
-  NSString *textToType = [request.arguments[@"value"] componentsJoinedByString:@""];
-  if (![FBKeyboard typeText:textToType error:&error]) {
+  NSString *textToType = value;
+  if ([value isKindOfClass:[NSArray class]]) {
+    textToType = [value componentsJoinedByString:@""];
+  }
+  if (element.elementType == XCUIElementTypePickerWheel) {
+    [element adjustToPickerWheelValue:textToType];
+    return FBResponseWithOK();
+  }
+  if (element.elementType == XCUIElementTypeSlider) {
+    CGFloat sliderValue = textToType.floatValue;
+    if (sliderValue < 0.0 || sliderValue > 1.0 ) {
+      return FBResponseWithErrorFormat(@"Value of slider should be in 0..1 range");
+    }
+    [element adjustToNormalizedSliderPosition:sliderValue];
+    return FBResponseWithOK();
+  }
+  NSError *error = nil;
+  if (![element fb_typeText:textToType error:&error]) {
     return FBResponseWithError(error);
   }
   return FBResponseWithElementUUID(elementUUID);
@@ -188,14 +190,7 @@
   NSString *elementUUID = request.parameters[@"uuid"];
   XCUIElement *element = [elementCache elementForUUID:elementUUID];
   NSError *error;
-  if (!element.hasKeyboardFocus && ![element fb_tapWithError:&error]) {
-    return FBResponseWithError(error);
-  }
-  NSMutableString *textToType = @"".mutableCopy;
-  for (NSUInteger i = 0 ; i < [element.value length] ; i++) {
-    [textToType appendString:@"\b"];
-  }
-  if (![FBKeyboard typeText:textToType error:&error]) {
+  if (![element fb_clearTextWithError:&error]) {
     return FBResponseWithError(error);
   }
   return FBResponseWithElementUUID(elementUUID);
@@ -209,11 +204,33 @@
   return FBResponseWithOK();
 }
 
++ (id<FBResponsePayload>)handleDoubleTapCoordinate:(FBRouteRequest *)request
+{
+  XCUICoordinate *doubleTapCoordinate = [self.class getGestureCoordinate:request];
+  [doubleTapCoordinate doubleTap];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleTwoFingerTap:(FBRouteRequest *)request
+{
+    FBElementCache *elementCache = request.session.elementCache;
+    XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
+    [element twoFingerTap];
+    return FBResponseWithOK();
+}
+
 + (id<FBResponsePayload>)handleTouchAndHold:(FBRouteRequest *)request
 {
   FBElementCache *elementCache = request.session.elementCache;
   XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
   [element pressForDuration:[request.arguments[@"duration"] doubleValue]];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleTouchAndHoldCoordinate:(FBRouteRequest *)request
+{
+  XCUICoordinate *pressCoordinate = [self.class getGestureCoordinate:request];
+  [pressCoordinate pressForDuration:[request.arguments[@"duration"] doubleValue]];
   return FBResponseWithOK();
 }
 
@@ -258,21 +275,6 @@
   return FBResponseWithErrorFormat(@"Unsupported scroll type");
 }
 
-+ (id<FBResponsePayload>)handleGetUIAElementValue:(FBRouteRequest *)request
-{
-    FBElementCache *elementCache = request.session.elementCache;
-    XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
-    if (element.elementType != XCUIElementTypePickerWheel) {
-        return FBResponseWithErrorFormat(@"Element is not of type %@", [FBElementTypeTransformer shortStringWithElementType:XCUIElementTypePickerWheel]);
-    }
-    NSString *wheelPickerValue = request.arguments[@"value"];
-    if (!wheelPickerValue) {
-        return FBResponseWithErrorFormat(@"Missing value parameter");
-    }
-    [element adjustToPickerWheelValue:wheelPickerValue];
-    return FBResponseWithOK();
-}
-
 + (id<FBResponsePayload>)handleDrag:(FBRouteRequest *)request
 {
   FBSession *session = request.session;
@@ -304,6 +306,16 @@
   return FBResponseWithOK();
 }
 
++ (id<FBResponsePayload>)handlePinch:(FBRouteRequest *)request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
+  CGFloat scale = (CGFloat)[request.arguments[@"scale"] doubleValue];
+  CGFloat velocity = (CGFloat)[request.arguments[@"velocity"] doubleValue];
+  [element pinchWithScale:scale velocity:velocity];
+  return FBResponseWithOK();
+}
+
 + (id<FBResponsePayload>)handleKeys:(FBRouteRequest *)request
 {
   NSString *textToType = [request.arguments[@"value"] componentsJoinedByString:@""];
@@ -316,8 +328,11 @@
 
 + (id<FBResponsePayload>)handleGetWindowSize:(FBRouteRequest *)request
 {
-  FBSession *session = request.session;
-  return FBResponseWithStatus(FBCommandStatusNoError, session.application.wdRect[@"size"]);
+  CGRect frame = request.session.application.wdFrame;
+  return FBResponseWithStatus(FBCommandStatusNoError, @{
+    @"width": @(CGRectGetWidth(frame)),
+    @"height": @(CGRectGetHeight(frame)),
+  });
 }
 
 
@@ -333,6 +348,15 @@
     return FBResponseWithError(error);
   }
   return FBResponseWithOK();
+}
+
++ (XCUICoordinate *)getGestureCoordinate:(FBRouteRequest *)request
+{
+  FBSession *session = request.session;
+  CGVector point = CGVectorMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
+  XCUICoordinate *appCoordinate = [[XCUICoordinate alloc] initWithElement:session.application normalizedOffset:CGVectorMake(0, 0)];
+  XCUICoordinate *gestureCoordinate = [[XCUICoordinate alloc] initWithCoordinate:appCoordinate pointsOffset:point];
+  return gestureCoordinate;
 }
 
 @end

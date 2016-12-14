@@ -13,11 +13,6 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- Function that returns property name defined by this protocol for given WebDriver Spec property name
- */
-NSString *wdAttributeNameForAttributeName(NSString *name);
-
-/**
  Protocol that should be implemented by class that can return element properties defined in WebDriver Spec
  */
 @protocol FBElement <NSObject>
@@ -27,12 +22,6 @@ NSString *wdAttributeNameForAttributeName(NSString *name);
 
 /*! Element's frame in NSDictionary format */
 @property (nonatomic, readonly, copy) NSDictionary *wdRect;
-
-/*! Element's size */
-@property (nonatomic, readonly, copy) NSDictionary *wdSize;
-
-/*! Element's origin */
-@property (nonatomic, readonly, copy) NSDictionary *wdLocation;
 
 /*! Element's name */
 @property (nonatomic, readonly, copy) NSString *wdName;
@@ -54,6 +43,9 @@ NSString *wdAttributeNameForAttributeName(NSString *name);
 
 /*! Whether element is accessible */
 @property (nonatomic, readonly, getter = isWDAccessible) BOOL wdAccessible;
+
+/*! Whether element is an accessibility container (contains children of any depth that are accessible) */
+@property (nonatomic, readonly, getter = isWDAccessibilityContainer) BOOL wdAccessibilityContainer;
 
 /**
  Returns value of given property specified in WebDriver Spec

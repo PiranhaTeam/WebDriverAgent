@@ -14,6 +14,7 @@
 #import "FBSession.h"
 #import "FBApplication.h"
 #import "XCUIDevice.h"
+#import "XCUIDevice+FBHealthCheck.h"
 
 @implementation FBSessionCommands
 
@@ -27,6 +28,9 @@
     [[FBRoute GET:@""] respondWithTarget:self action:@selector(handleGetActiveSession:)],
     [[FBRoute DELETE:@""] respondWithTarget:self action:@selector(handleDeleteSession:)],
     [[FBRoute GET:@"/status"].withoutSession respondWithTarget:self action:@selector(handleGetStatus:)],
+
+    // Health check might modify simulator state so it should only be called in-between testing sessions
+    [[FBRoute GET:@"/healthcheck"].withoutSession respondWithTarget:self action:@selector(handleGetHealthCheck:)],
   ];
 }
 
@@ -46,6 +50,10 @@
   app.launchArguments = (NSArray<NSString *> *)requirements[@"arguments"] ?: @[];
   app.launchEnvironment = (NSDictionary <NSString *, NSString *> *)requirements[@"environment"] ?: @{};
   [app launch];
+
+  if (app.processID == 0) {
+    return FBResponseWithErrorFormat(@"Failed to launch %@ application", bundleID);
+  }
   [FBSession sessionWithApplication:app];
   return FBResponseWithObject(FBSessionCommands.sessionInformation);
 }
@@ -53,6 +61,12 @@
 + (id<FBResponsePayload>)handleGetActiveSession:(FBRouteRequest *)request
 {
   return FBResponseWithObject(FBSessionCommands.sessionInformation);
+}
+
++ (id<FBResponsePayload>)handleDeleteSession:(FBRouteRequest *)request
+{
+  [request.session kill];
+  return FBResponseWithOK();
 }
 
 + (id<FBResponsePayload>)handleGetStatus:(FBRouteRequest *)request
@@ -79,9 +93,11 @@
   );
 }
 
-+ (id<FBResponsePayload>)handleDeleteSession:(FBRouteRequest *)request
++ (id<FBResponsePayload>)handleGetHealthCheck:(FBRouteRequest *)request
 {
-  [request.session kill];
+  if (![[XCUIDevice sharedDevice] fb_healthCheckWithApplication:[FBApplication fb_activeApplication]]) {
+    return FBResponseWithErrorFormat(@"Health check failed");
+  }
   return FBResponseWithOK();
 }
 
