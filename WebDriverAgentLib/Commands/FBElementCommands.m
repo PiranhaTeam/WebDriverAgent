@@ -23,6 +23,7 @@
 #import "XCUICoordinate.h"
 #import "XCUIDevice.h"
 #import "XCUIElement+FBIsVisible.h"
+#import "XCUIElement+FBPickerWheel.h"
 #import "XCUIElement+FBScrolling.h"
 #import "XCUIElement+FBTap.h"
 #import "XCUIElement+FBTyping.h"
@@ -67,24 +68,7 @@
     [[FBRoute POST:@"/wda/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHoldCoordinate:)],
     [[FBRoute POST:@"/wda/doubleTap"] respondWithTarget:self action:@selector(handleDoubleTapCoordinate:)],
     [[FBRoute POST:@"/wda/keys"] respondWithTarget:self action:@selector(handleKeys:)],
-
-    // TODO: This API call should be deprecated and replaced with the one above without the extra :uuid parameter
-    [[FBRoute GET:@"/window/:uuid/size"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
-
-    // TODO: Those endpoints are deprecated and will die soon
-    [[FBRoute POST:@"/element/:uuid/pinch"] respondWithTarget:self action:@selector(handlePinch:)],
-    [[FBRoute GET:@"/element/:uuid/accessible"] respondWithTarget:self action:@selector(handleGetAccessible:)],
-    [[FBRoute GET:@"/element/:uuid/accessibilityContainer"] respondWithTarget:self action:@selector(handleGetIsAccessibilityContainer:)],
-    [[FBRoute POST:@"/uiaElement/:uuid/doubleTap"] respondWithTarget:self action:@selector(handleDoubleTap:)],
-    [[FBRoute POST:@"/uiaElement/:uuid/twoFingerTap"] respondWithTarget:self action:@selector(handleTwoFingerTap:)],
-    [[FBRoute POST:@"/uiaElement/:uuid/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHold:)],
-    [[FBRoute POST:@"/uiaElement/:uuid/scroll"] respondWithTarget:self action:@selector(handleScroll:)],
-    [[FBRoute POST:@"/uiaTarget/:uuid/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDrag:)],
-    [[FBRoute POST:@"/tap/:uuid"] respondWithTarget:self action:@selector(handleTap:)],
-    [[FBRoute POST:@"/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHoldCoordinate:)],
-    [[FBRoute POST:@"/doubleTap"] respondWithTarget:self action:@selector(handleDoubleTapCoordinate:)],
-    [[FBRoute POST:@"/keys"] respondWithTarget:self action:@selector(handleKeys:)],
-    [[FBRoute GET:@"/window/size"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
+    [[FBRoute POST:@"/wda/pickerwheel/:uuid/select"] respondWithTarget:self action:@selector(handleWheelSelect:)]
   ];
 }
 
@@ -119,12 +103,7 @@
 {
   FBElementCache *elementCache = request.session.elementCache;
   XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
-  id text;
-  if ([element elementType] == XCUIElementTypeStaticText || [element elementType] == XCUIElementTypeButton) {
-    text = [element wdLabel];
-  } else {
-    text = [element wdValue];
-  }
+  id text = FBFirstNonEmptyValue(element.wdValue, element.wdLabel);
   text = text ?: [NSNull null];
   return FBResponseWithStatus(FBCommandStatusNoError, text);
 }
@@ -392,6 +371,37 @@
   });
 }
 
+static const CGFloat DEFAULT_OFFSET = (CGFloat)0.2;
+
++ (id<FBResponsePayload>)handleWheelSelect:(FBRouteRequest *)request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  XCUIElement *element = [elementCache elementForUUID:request.parameters[@"uuid"]];
+  if (element.elementType != XCUIElementTypePickerWheel) {
+    return FBResponseWithErrorFormat(@"The element is expected to be a valid Picker Wheel control. '%@' was given instead", element.wdType);
+  }
+  NSString* order = [request.arguments[@"order"] lowercaseString];
+  CGFloat offset = DEFAULT_OFFSET;
+  if (request.arguments[@"offset"]) {
+    offset = [request.arguments[@"offset"] doubleValue];
+    if (offset <= 0.0 || offset > 0.5) {
+      return FBResponseWithErrorFormat(@"'offset' value is expected to be in range (0.0, 0.5]. '%@' was given instead", request.arguments[@"offset"]);
+    }
+  }
+  BOOL isSuccessful = false;
+  NSError *error;
+  if ([order isEqualToString:@"next"]) {
+    isSuccessful = [element fb_selectNextOptionWithOffset:offset error:&error];
+  } else if ([order isEqualToString:@"previous"]) {
+    isSuccessful = [element fb_selectPreviousOptionWithOffset:offset error:&error];
+  } else {
+    return FBResponseWithErrorFormat(@"Only 'previous' and 'next' order values are supported. '%@' was given instead", request.arguments[@"order"]);
+  }
+  if (!isSuccessful) {
+    return FBResponseWithError(error);
+  }
+  return FBResponseWithOK();
+}
 
 #pragma mark - Helpers
 
@@ -409,7 +419,7 @@
 
 /**
  Returns gesture coordinate for the application based on absolute coordinate
- 
+
  @param coordinate absolute screen coordinates
  @param application the instance of current application under test
  @shouldApplyOrientationWorkaround whether to apply orientation workaround. This is to
