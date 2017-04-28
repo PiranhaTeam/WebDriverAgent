@@ -1854,6 +1854,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EEE5CABF1C80361500CBBDD9 /* ProjectSettings.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -1873,6 +1874,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentLib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1882,6 +1884,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EEE5CABF1C80361500CBBDD9 /* ProjectSettings.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = NO;
@@ -1900,6 +1903,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentLib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -2008,6 +2012,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "";
 				USES_XCTRUNNER = YES;
 			};
 			name = Debug;
@@ -2029,6 +2034,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "";
 				USES_XCTRUNNER = YES;
 			};
 			name = Release;
