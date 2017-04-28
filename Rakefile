@@ -58,7 +58,7 @@ task :build_app => [] do
             "-scheme #{scheme_name} " \
             "-configuration #{configuration} " \
             "-sdk iphoneos " \
-            "-derivedDataPath #{derivedDataPath}"
+            "-derivedDataPath #{derivedDataPath} " \
             "clean build  CODE_SIGN_IDENTITY='iPhone Developer' CODE_SIGNING_REQUIRED=YES"
     build_status = xcodebuild(flags , 'xcodebuild.log')
     exit(-1) unless build_status==0
@@ -73,7 +73,7 @@ task :build_sim_app => [] do
             "-scheme #{scheme_name} " \
             "-configuration #{configuration} " \
             "-sdk iphonesimulator " \
-            "-derivedDataPath #{derivedDataPath}"
+            "-derivedDataPath #{derivedDataPath}" \
             "clean build "
     build_status = xcodebuild(flags , 'xcodebuild.log')
     exit(-1) unless build_status==0
@@ -88,7 +88,7 @@ task :start_Agent => [] do
             "-configuration #{configuration} " \
             "-derivedDataPath #{derivedDataPath} " \
             "-destination 'platform=iOS,id=d0840be174028a4301d250e8a3c70e83d58f74bd' " \
-            "clean test "
+            "clean test CODE_SIGN_IDENTITY='iPhone Developer' CODE_SIGNING_REQUIRED=YES"
     build_status = xcodebuild(flags , 'xcodebuild.log')
 end
 

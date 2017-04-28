@@ -16,7 +16,7 @@
 
 BOOL _AXSAutomationSetFauxCollectionViewCellsEnabled(BOOL);
 
-static NSUInteger const DefaultStartingPort = 8100;
+static NSUInteger const DefaultStartingPort = 9990;
 static NSUInteger const DefaultPortRange = 100;
 
 @implementation FBConfiguration

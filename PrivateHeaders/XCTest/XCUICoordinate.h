@@ -27,7 +27,7 @@
 - (id)initWithElement:(id)arg1 normalizedOffset:(CGVector)arg2;
 - (id)init;
 
-- (void)pressForDuration:(double)arg1 thenDragToCoordinate:(id)arg2;
+- (void)pressForDuration2:(double)arg1 thenDragToCoordinate:(id)arg2;
 - (void)pressForDuration:(double)arg1;
 - (void)doubleTap;
 - (void)tap;
