@@ -10,6 +10,7 @@
 #import "FBSessionCommands.h"
 
 #import "FBApplication.h"
+#import "FBConfiguration.h"
 #import "FBRouteRequest.h"
 #import "FBSession.h"
 #import "FBApplication.h"
@@ -25,6 +26,7 @@
 {
   return
   @[
+    [[FBRoute POST:@"/url"] respondWithTarget:self action:@selector(handleOpenURL:)],
     [[FBRoute POST:@"/session"].withoutSession respondWithTarget:self action:@selector(handleCreateSession:)],
     [[FBRoute GET:@""] respondWithTarget:self action:@selector(handleGetActiveSession:)],
     [[FBRoute DELETE:@""] respondWithTarget:self action:@selector(handleDeleteSession:)],
@@ -32,14 +34,33 @@
 
     // Health check might modify simulator state so it should only be called in-between testing sessions
     [[FBRoute GET:@"/wda/healthcheck"].withoutSession respondWithTarget:self action:@selector(handleGetHealthCheck:)],
-
-    // TODO: Those endpoints are deprecated and will die soon
-    [[FBRoute GET:@"/healthcheck"].withoutSession respondWithTarget:self action:@selector(handleGetHealthCheck:)],
   ];
 }
 
 
 #pragma mark - Commands
+
++ (id<FBResponsePayload>)handleOpenURL:(FBRouteRequest *)request
+{
+  NSString *urlString = request.arguments[@"url"];
+  if (!urlString) {
+    return FBResponseWithStatus(FBCommandStatusInvalidArgument, @"URL is required");
+  }
+  NSURL *url = [NSURL URLWithString:urlString];
+  if (!url) {
+    return FBResponseWithStatus(
+      FBCommandStatusInvalidArgument,
+      [NSString stringWithFormat:@"%@ is not a valid URL", url]
+    );
+  }
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (![[UIApplication sharedApplication] openURL:url]) {
+    return FBResponseWithErrorFormat(@"Failed to open %@", url);
+  }
+  #pragma clang diagnostic pop
+  return FBResponseWithOK();
+}
 
 + (id<FBResponsePayload>)handleCreateSession:(FBRouteRequest *)request
 {
@@ -49,6 +70,11 @@
   if (!bundleID) {
     return FBResponseWithErrorFormat(@"'bundleId' desired capability not provided");
   }
+  [FBConfiguration setShouldUseTestManagerForVisibilityDetection:[requirements[@"shouldUseTestManagerForVisibilityDetection"] boolValue]];
+  if (requirements[@"maxTypingFrequency"]) {
+    [FBConfiguration setMaxTypingFrequency:[requirements[@"maxTypingFrequency"] integerValue]];
+  }
+
   FBApplication *app = [[FBApplication alloc] initPrivateWithPath:appPath bundleID:bundleID];
   app.fb_shouldWaitForQuiescence = [requirements[@"shouldWaitForQuiescence"] boolValue];
   app.launchArguments = (NSArray<NSString *> *)requirements[@"arguments"] ?: @[];
