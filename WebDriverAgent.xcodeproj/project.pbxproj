@@ -1506,6 +1506,7 @@
 					};
 					EEF988291C486603005CA669 = {
 						CreatedOnToolsVersion = 7.2;
+						DevelopmentTeam = YV45G6S2TP;
 					};
 				};
 			};
