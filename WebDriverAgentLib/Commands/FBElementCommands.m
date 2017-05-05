@@ -283,7 +283,7 @@
   NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
   XCUICoordinate *endCoordinate = [self.class gestureCoordinateWithCoordinate:endPoint application:session.application shouldApplyOrientationWorkaround:YES];
   XCUICoordinate *startCoordinate = [self.class gestureCoordinateWithCoordinate:startPoint application:session.application shouldApplyOrientationWorkaround:YES];
-  [startCoordinate pressForDuration2:duration thenDragToCoordinate:endCoordinate];
+  [startCoordinate pressForDuration:duration thenDragToCoordinate:endCoordinate];
   return FBResponseWithOK();
 }
 
@@ -298,7 +298,7 @@
   BOOL shouldApplyOrientationWorkaround = SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"10.0");
   XCUICoordinate *endCoordinate = [self.class gestureCoordinateWithCoordinate:endPoint application:session.application shouldApplyOrientationWorkaround:shouldApplyOrientationWorkaround];
   XCUICoordinate *startCoordinate = [self.class gestureCoordinateWithCoordinate:startPoint application:session.application shouldApplyOrientationWorkaround:shouldApplyOrientationWorkaround];
-  [startCoordinate pressForDuration2:duration thenDragToCoordinate:endCoordinate];
+  [startCoordinate pressForDuration:duration thenDragToCoordinate:endCoordinate];
   return FBResponseWithOK();
 }
 
